@@ -1,9 +1,8 @@
-FROM alpine:3.13
+FROM alpine:edge
 MAINTAINER joxcat
 
 RUN set -x \
     && apk --no-cache add \
-        alpine-sdk \
         ca-certificates \
         python3 \
         py3-pip \
@@ -67,12 +66,22 @@ RUN pip install matlab_kernel
 
 # Install ocaml
 # https://github.com/akabe/ocaml-jupyter
-RUN apk add --no-cache opam \
-    && opam init --yes --disable-sandboxing \
-    && opam install --yes jupyter \
-    && opam install--yes jupyter-archimedes \
+RUN apk add --no-cache \
+    opam \
+    ocaml-compiler-libs \
+    ocaml-ocamldoc \
+    ocaml-camlp4 \
+    ocaml-camlp4-dev \
+    m4 \
+    cairo-dev \
+    bash
+RUN rm -rf /usr/lib/ocaml/ocamlbuild
+RUN opam init --yes --disable-sandboxing
+RUN opam install --yes jupyter \
+    && opam install --yes jupyter-archimedes
+RUN eval $(opam env) \
     && ocaml-jupyter-opam-genspec \
-    && cp -r "$(opam var share)/jupyter" /usr/share/jupyter/ocaml
+    && cp -r "$(opam var share)/jupyter" /usr/share/jupyter/kernels/ocaml
 
 # Install Elm
 # https://github.com/abingham/jupyter-elm-kernel
@@ -81,10 +90,65 @@ RUN pip install elm_kernel
 # Install Emu86
 # https://github.com/gcallah/Emu86/tree/master/kernels
 RUN pip install emu86 \
-    && python -m kernels.intel.install
+    && python3 -m kernels.intel.install
 
 # Install coq
 # https://github.com/EugeneLoy/coq_jupyter
+RUN apk add --no-cache \
+    gtksourceview-dev \
+    gtk+3.0-dev \
+    adwaita-icon-theme
+RUN opam install --yes coqide
+RUN eval $(opam env) \
+    && pip install coq-jupyter \
+    && python3 -m coq_jupyter.install
+
+# Install TS / JS
+# https://github.com/yunabe/tslab
+RUN apk add --no-cache \
+    nodejs \
+    npm
+RUN npm install -g tslab \
+    && tslab install
+
+# Install Rust
+# https://github.com/google/evcxr/tree/main/evcxr_jupyter
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN source $HOME/.cargo/env \
+    && rustup component add rust-src
+RUN apk add --no-cache \
+    cmake \
+    g++
+RUN source $HOME/.cargo/env \
+    && cargo install evcxr_jupyter --no-default-features \
+    && evcxr_jupyter --install
+
+# Install Clojure
+# https://github.com/clojupyter/clojupyter
+RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    openjdk8 \
+    leiningen \
+    rlwrap
+WORKDIR /build
+RUN lein version
+RUN curl -O https://download.clojure.org/install/linux-install-1.10.2.774.sh \
+    && chmod +x linux-install-1.10.2.774.sh \
+    && ./linux-install-1.10.2.774.sh
+RUN git clone --depth 1 --branch 0.3.2 https://github.com/clojupyter/clojupyter.git
+WORKDIR /build/clojupyter
+RUN clj
+RUN make install
+WORKDIR /
+RUN rm -rf /build
+
+# Install Java
+# https://github.com/SpencerPark/IJava
+WORKDIR /build
+RUN wget https://github.com/SpencerPark/IJava/releases/download/v1.3.0/ijava-1.3.0.zip \
+    && unzip ijava-1.3.0.zip \
+    && cp -r java /usr/share/jupyter/kernels/java
+WORKDIR /
+RUN rm -rf /build
 
 # Cleanup
 RUN cd - \
@@ -96,5 +160,6 @@ RUN cd - \
 
 VOLUME /notebooks
 WORKDIR /notebooks
+ENV HOME=/notebooks
 EXPOSE 8888
 CMD [ "jupyter", "notebook", "--no-browser", "--allow-root", "--ip=0.0.0.0" ]
