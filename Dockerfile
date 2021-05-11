@@ -1,4 +1,4 @@
-FROM alpine:edge
+FROM alpine:edge AS base
 MAINTAINER joxcat
 
 RUN set -x \
@@ -139,11 +139,10 @@ WORKDIR /build/clojupyter
 RUN clj
 RUN make install
 WORKDIR /
-RUN rm -rf /build
 
 # Install Java
 # https://github.com/SpencerPark/IJava
-WORKDIR /build
+WORKDIR /build/java
 RUN wget https://github.com/SpencerPark/IJava/releases/download/v1.3.0/ijava-1.3.0.zip \
     && unzip ijava-1.3.0.zip \
     && cp -r java /usr/share/jupyter/kernels/java
@@ -163,3 +162,6 @@ WORKDIR /notebooks
 ENV HOME=/notebooks
 EXPOSE 8888
 CMD [ "jupyter", "notebook", "--no-browser", "--allow-root", "--ip=0.0.0.0" ]
+
+FROM base
+COPY . $HOME
