@@ -146,6 +146,12 @@ RUN echo '{"argv":["/opt/ielixir/start_script.sh","{connection_file}"],"display_
     | python3 -m json.tool > /opt/ielixir/resources/ielixir/kernel.json \
     && cp -r /opt/ielixir/resources/ielixir /usr/share/jupyter/kernels
 
+# Hy lang (print "python X lisp <3")
+RUN pip install hy \
+    && pip3 install git+https://github.com/ekaschalk/jedhy.git \
+    && pip3 install git+https://github.com/Calysto/calysto_hy.git \
+    && python3 -m calysto_hy install
+
 # Cleanup
 # RUN apt-get remove -y $BUILD_DEPS
 # RUN apt-get clean -y
